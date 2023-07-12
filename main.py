@@ -11,6 +11,7 @@ import asyncio
 # from pprint import pprint
 from decimal import Decimal
 import math
+from rich import print
 
 # debug
 NOWAIT = True
@@ -85,7 +86,7 @@ def send_tokens(source_wallet, secret, qty, destination_wallet):
 		# print(" [Success] TX Hash: " + w3.to_hex(hash_tx))
 
 	except Exception as e:
-		print(f" [!!] " + str(e))
+		print(f"[red] [!!] " + str(e))
 
 	return False
 
@@ -132,7 +133,9 @@ async def start():
 	print("")
 
 	if any(len(x)==0 for x in [source_rows,destination_rows]):
-		exit("Please populate the data sheets with wallet information.")
+		print("[red]Please populate the data sheets with wallet information.")
+		input("Press Enter to exit... ")
+		exit()
 
 	# show balances
 	print("\nCurrent Balances:\n")
@@ -143,6 +146,13 @@ async def start():
 			b = w3.from_wei(w3.eth.get_balance(w3.to_checksum_address(x[0])), 'ether')
 		print(f" [{x[0]}] = {b:,.{precision}f} {symbol}")
 
+	print("")
+ 
+	print(" [yellow][:warning-emoji:] [b]IMPORTANT[/b]: Planning to send a random amount between '%s' and '%s' (or balance, whichever is lowest) in currency %s to [b]each wallet[/b]!\n Make sure you have sufficient balances." % (config.get("Common","min_send_amount"), config.get("Common","max_send_amount"), symbol))
+	_max = float(config.get('Common','max_send_amount'))
+	_max = _max if _max < float(b) else float(b)
+	eg = random.randrange(int(float(config.get('Common','min_send_amount'))*decimals),int(_max*decimals)) / decimals
+	print(f" [yellow]eg. {eg:,.{precision}f} {symbol} ")
 	print("")
 
 	input("Press Enter to Start Airdrop... (Ctrl+C to exit) ")
@@ -192,7 +202,7 @@ async def task(thread):
 		# print("-=-=-=-=-")
 
 		if len(using_source) == 0 or len(using_destination) == 0:
-			print(f" [{thread}] No wallets to work with...")
+			print(f" [red][{thread}] No wallets to work with...")
 			break
 
 		# print(f" [{thread}] Choosing wallets...")
@@ -218,7 +228,7 @@ async def task(thread):
 			await async_wait(3)
 		
 		if not source or not destination:
-			print(f" [{thread}] Could not determine wallet/s to work with.")
+			print(f" [red][{thread}] Could not determine wallet/s to work with.")
 			await sleep(thread)
 			continue
 
@@ -249,21 +259,21 @@ async def task(thread):
 		if math.isclose(qty,0) or qty < 0: qty = config.getfloat("Common","max_send_amount")
 		# decimals = 10000000
 		minn = config.getfloat("Common","min_send_amount",fallback=0.0) * decimals if config.getfloat("Common","min_send_amount",fallback=0.0) > 0 else 0
-		maxx = qty * decimals
+		maxx = qty * decimals if qty < float(source_balance) else float(source_balance) * decimals
 		# print("{:.18f}".format(minn))
 		# print("{:.18f}".format(maxx))
+		# print("{:.18f}".format(qty))
 		qty = random.randrange(int(minn),int(maxx)) / decimals
 		# qty = w3.to_wei(Decimal(qty),'ether')
 		# print("{:.18f}".format(decimals))
 		# print("{:.18f}".format(qty))
 		
-
 		destination_wallet = destination[0]
 
 		print(f" [{thread}] [Balance] [{source_wallet}]  = {source_balance:,.{precision}f} {symbol}")
 
 		if source_balance < qty:
-			print(f" [{thread}] Trying to send more than available balance.")
+			print(f" [red][{thread}] Trying to send more ({qty:,.{precision}f}) than available balance.")
 			break
 
 		
@@ -273,7 +283,7 @@ async def task(thread):
 
 		tx_id = send_tokens(source_wallet, secret, qty, destination_wallet)
 		if not tx_id:
-			print(f" [{thread}] Transaction Failed. ")
+			print(f" [red][{thread}] Transaction Failed. ")
 			await sleep(thread)
 			break #continue # or break?
 
@@ -287,7 +297,7 @@ async def task(thread):
 		source[4] 		= float(source[4]) - qty
 		destination[3] 	= float(destination[3]) + qty
 
-		print(f" [{thread}] Transaction completed: {tx_id} ; [Balance] [{destination[0]}] {destination[3]:,.{precision}f} {symbol}")
+		print(f" [green][{thread}] Transaction completed: {tx_id} ; [Balance] [{destination[0]}] {destination[3]:,.{precision}f} {symbol}")
 
 		if config.getboolean("Common","one_transaction_per_wallet",fallback=True):
 			# source[3] = soruce[2]
@@ -410,8 +420,10 @@ if __name__ == "__main__":
 		w3 = Web3(Web3.HTTPProvider(node))
 		w3.middleware_onion.inject(geth_poa_middleware, layer=0) # for testnet only
 		if not w3.is_connected():
-			exit("Cannot connect to blockchain.")
-		print("Connected...")
+			print("[red]Cannot connect to blockchain.")
+			input("Press Enter to exit...")
+			exit()
+		print("[green]Connected...")
 
 		contract_address = config.get('Common','token_contract')
 
@@ -428,7 +440,7 @@ if __name__ == "__main__":
 
 
 	except Exception as e:
-		print("ERROR: " + str(e))
+		print("[red]ERROR: " + str(e))
 		input("Press Enter to exit... ")	
 		exit()
 
@@ -436,21 +448,21 @@ if __name__ == "__main__":
 		if contract_address:
 			print("Found contract...")
 			print("")
-			print("[Name] = " + contract.functions.name().call())
+			print("['Name'] = " + contract.functions.name().call())
 			symbol = contract.functions.symbol().call()
-			print("[Symbol] = " + symbol)
+			print("['Symbol'] = " + symbol)
 			precision = contract.functions.decimals().call()
 			decimals = float(10 ** precision)
-			print("[Decimals] = " + str(contract.functions.decimals().call()))
-			print("[Total Supply] = " + "{:,}".format(int(contract.functions.totalSupply().call() / decimals)))
+			print("['Decimals'] = " + str(contract.functions.decimals().call()))
+			print("['Total Supply'] = " + "{:,}".format(int(contract.functions.totalSupply().call() / decimals)))
 		else:
 			print("\nUsing Native Currency...")
 			# TODO https://chainid.network/chains.json
 			name, symbol, precision = get_native_currency()
 			decimals = float(10 ** 18)
-			print(f"[Name] = {name}")
-			print(f"[Symbol] = {symbol}")
-			print(f"[Decimals] = {precision}")
+			print(f"['Name'] = {name}")
+			print(f"['Symbol'] = {symbol}")
+			print(f"['Decimals'] = {precision}")
 
 		print("")
 
@@ -461,34 +473,34 @@ if __name__ == "__main__":
 
 		# print("[Current Gas Price] = " + str(w3.from_wei(w3.eth.gas_price, 'gwei')))
 
-		print("[Generated Gas Price] = " + str(w3.from_wei(Decimal(w3.eth.generate_gas_price()), 'gwei')))
+		print("['Generated Gas Price'] = " + str(w3.from_wei(Decimal(w3.eth.generate_gas_price()), 'gwei')))
 
 
 		print("\nConfigurations\n")
 
-		print("[use_auto_gas_price] = " + str(config.getboolean("Common","use_auto_gas_price",fallback=False) ))
-		print("[gas_price] = " + config.get("Common","gas_price") )
-		print("[gas_limit] = " + config.get("Common","gas_limit") )
+		print("[magenta]use_auto_gas_price[/magenta] = " + str(config.getboolean("Common","use_auto_gas_price",fallback=False) ))
+		print("[magenta]gas_price[/magenta] = " + config.get("Common","gas_price") )
+		print("[magenta]gas_limit[/magenta] = " + config.get("Common","gas_limit") )
 
-		print("[min_send_amount] = " + config.get("Common","min_send_amount") )
-		print("[max_send_amount] = " + config.get("Common","max_send_amount") )
+		print("[magenta]min_send_amount[/magenta] = " + config.get("Common","min_send_amount") )
+		print("[magenta]max_send_amount[/magenta] = " + config.get("Common","max_send_amount") )
 
 
 
 
 	except Exception as e:
-		print(" [!!] "+str(e))
+		print(" [red][!!] "+str(e))
 		input("Press Enter to exit... ")
 		exit()
 
-	print("[threads_count] = " + str(config.getint("Common","threads_count") ))
-	print(f"[delay_between_transfer_from] = {config.get('Common','delay_between_transfer_from',fallback='')}")
-	print(f"[delay_between_transfer_to] = {config.get('Common','delay_between_transfer_to',fallback='')}")
-	print(f"[one_transaction_per_wallet] = {config.getboolean('Common','one_transaction_per_wallet',fallback='')}")
+	print("[magenta]threads_count[/magenta] = " + str(config.getint("Common","threads_count") ))
+	print(f"[magenta]delay_between_transfer_from[/magenta] = {config.get('Common','delay_between_transfer_from',fallback='')}")
+	print(f"[magenta]delay_between_transfer_to[/magenta] = {config.get('Common','delay_between_transfer_to',fallback='')}")
+	print(f"[magenta]one_transaction_per_wallet[/magenta] = {config.getboolean('Common','one_transaction_per_wallet',fallback='')}")
 
 	print("")
 
-	print("\nPlease ensure there is wallet data to work with before you continue...")
+	print("\n[b]Please ensure there is wallet data to work with before you continue...\n")
 	input("Press Enter to continue (Ctrl+C to exit) ")
 
 	# exit()
