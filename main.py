@@ -400,7 +400,7 @@ if __name__ == "__main__":
 	### print pandas dataframes 
 	print("")
 
-	async_wait(3)
+	time.sleep(3)
 
 	try:
 		node = config.get('Common','node_http_url')
