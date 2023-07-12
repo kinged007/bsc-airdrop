@@ -1,14 +1,14 @@
 # import pandas as pd
 # import numpy
-from utils import *	
+from utils import load_config, printHeading, printTitle, async_wait
+import os, time, random, json
+from loguru import logger as log
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 import csv
-import json
 import asyncio
-import random, time
-from pprint import pprint
+# from pprint import pprint
 from decimal import Decimal
 import math
 
@@ -17,13 +17,12 @@ NOWAIT = True
 log.remove(0)
 
 # pd.set_option("chained_assignment", None)
-
+ 
 config = load_config()
 
 # print_config(config)
 
-if not os.path.exists('data'):
-	make_path('data')
+os.makedirs('data',exist_ok=True)
 
 
 def get_native_currency():
@@ -401,7 +400,7 @@ if __name__ == "__main__":
 	### print pandas dataframes 
 	print("")
 
-	wait(3)
+	async_wait(3)
 
 	try:
 		node = config.get('Common','node_http_url')
@@ -430,6 +429,7 @@ if __name__ == "__main__":
 
 	except Exception as e:
 		print("ERROR: " + str(e))
+		input("Press Enter to exit... ")	
 		exit()
 
 	try:
@@ -478,6 +478,7 @@ if __name__ == "__main__":
 
 	except Exception as e:
 		print(" [!!] "+str(e))
+		input("Press Enter to exit... ")
 		exit()
 
 	print("[threads_count] = " + str(config.getint("Common","threads_count") ))
@@ -500,14 +501,6 @@ if __name__ == "__main__":
 		asyncio.run(start())
 	except KeyboardInterrupt:
 		log.info('Exiting...')
-
-
-	exit()
-
-
-
-	send_tokens('0x0db36ecdc28b22d75708d0d5e1a26913c5da1598','0xff11a717c09d7100cfa6a59f51261a5b85e316d47292bfcfe8ca5f40bcb463fc','0.01','0xbe2ba0a9369df06dbccdf9becaf23691c54367f6')
-
 
 	input("Press Enter to exit... ")
 
