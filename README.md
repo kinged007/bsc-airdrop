@@ -1,96 +1,95 @@
-# crypto-airdrop
+# bsc-airdrop
 
-## Description
+[![CI](https://github.com/kinged007/bsc-airdrop/actions/workflows/ci.yml/badge.svg)](https://github.com/kinged007/bsc-airdrop/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](requirements.txt)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-This app can either simulate an airdrop (single transaction) of tokens to multiple receiving wallets, or multiple transactions of tokens to destination wallets. 
+Free BSC token airdrop tool for project owners to distribute ERC-20 or native BNB to many wallets from CSV files. Configure send limits, concurrency, and gas — free for any project owner.
 
-Random Senders are chosen to send a randomised amount to a random receiver. Limitations and maximum amounts may be applied through the `config.ini` file or the columns `send_max` and `receive_max` in the CSV files. 
+## What it is
 
-## Installation
-1. To install, just execute `install.bat` on Windows, or `run.bat` (Windows) or `run.sh` (Mac/Linux) for the first time.
-2. Rename `config_sample.ini` to `config.ini`.
-3. Open `config.ini` and set parameters.
-4. Execute `run.bat` (Windows) or `run.sh` (Mac/Linux) to create directories and templates.
+- Sends ERC-20 tokens or native currency (BNB) to many destination wallets from a funded set of source wallets.
+- Random sender / receiver selection with configurable min/max amounts, per-wallet caps (`send_max` / `receive_max`), and multi-threaded execution.
+- Designed for BSC but works with any EVM chain via `node_http_url` / `chain_id` in `config.ini`.
 
-## Configuration options
+## Install
 
-`threads_count` is the number of multi-processes to run at the same time.
+Prereqs: Python 3.10+.
 
-`delay_between_transfer_from`  is the min seconds to wait between transactions (per thread/process)
+```bash
+# clone
+git clone https://github.com/kinged007/bsc-airdrop.git
+cd bsc-airdrop
 
-`delay_between_transfer_to`  is the max seconds to wait between transactions (per thread/process)
+# quick start (creates venv + installs deps)
+./run.sh          # macOS / Linux
+# or
+run.bat           # Windows
 
-`min_send_amount`  is the minimum transaction volume (of token) to send.
+# manual
+python3 -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate.bat
+pip install -r requirements.txt
+```
 
-`max_send_amount`  is the maximum transaction volume (of token) to send. A random number between min and max is issued.
+## Configuration
 
-`token_name`  (optional) just the name of the token you are executing.
+```bash
+cp config_sample.ini config.ini
+# edit config.ini: set node_http_url, chain_id, token_contract, amounts, gas
+```
 
-`token_contract`  the contract address (Upper case) of ERC20 Token. Empty will resort to using the chains native currency (eg. BNB on BSC)
+Key options (see `config_sample.ini` for all):
 
-`node_http_url`  the RPC URL for the blockchain. See https://rpc.info/
+| Option | Description |
+|---|---|
+| `threads_count` | Concurrent workers |
+| `delay_between_transfer_from` / `delay_between_transfer_to` | Random wait between transfers (seconds) |
+| `min_send_amount` / `max_send_amount` | Random amount per transfer |
+| `token_contract` | ERC-20 address (empty = native currency) |
+| `node_http_url` / `chain_id` | RPC URL and chain ID (e.g. BSC 56, BSC testnet 97) |
+| `gas_price` / `gas_limit` | Gas settings (`use_auto_gas_price = true` to auto) |
+| `one_transaction_per_wallet` | If true, each destination receives once |
 
-`chain_id`  the chain ID for the blockchain in use. See https://rpc.info/
+## Usage
 
-`use_auto_gas_price`  (boolean) Auto set the gas price based on default pricing strategy (easy option)
+1. Populate `data/source_wallets.csv` (sender address + private key, optional `send_max`) and `data/destination_wallets.csv` (receiver addresses, optional `receive_max`). Templates are created on first run.
+2. Fill `config.ini`.
+3. Run:
 
-`gas_price`  set your own gas price to use. If value is too low, transactions will fail.
+```bash
+./run.sh
+# or
+python main.py
+```
 
-`gas_limit`  set your gas limit. Depends on blockchain, see last transactions on network to get an idea.
+The tool shows balances, planned send range, and streams transaction hashes. CSV files are updated with `send_total` / `receive_total` and `last_balance` after each transfer. Press Ctrl+C to stop gracefully.
 
-`timeout_find_wallet`  (seconds) timeout value to find suitable wallet to work with.
+> **Security:** `config.ini` and `data/` are gitignored. Never commit private keys or funded wallet files. The sample config points at BSC testnet.
 
-`timeout_transaction_receipt`  (seconds) timeout value to wait for transaction receipt. Assumed fail if no transaction receipt received.
+## How it is tested
 
-`one_transaction_per_wallet` (boolean) If `True`, each destination wallet will only receive one transaction.
+```bash
+pip install -r requirements-dev.txt   # pytest, ruff, mypy
+pytest -q
+ruff check .
+mypy .
+# or via the check in CI
+```
 
+Tests cover config loading and CSV parsing / wallet selection logic. Lint and type checks run on every push/PR via GitHub Actions.
 
-## Other information
+## Project structure
 
-If no `token_contract` is set, the app will send the native currency to the destination wallets, if that wallet has sufficient balance.
+```
+config_sample.ini      sample config (copy to config.ini)
+main.py                airdrop orchestration, web3 transfers
+utils.py               config / logging / helpers
+requirements.txt       runtime deps
+requirements-dev.txt   test + lint deps
+data/                  source_wallets.csv, destination_wallets.csv (gitignored)
+```
 
-If `one_transaction_per_wallet` is `True`, each destination will receive only ONE transaction. 
-If this is `False`, then the receivers will continue receiveing transactions up to the `receive_max` amount defined in the `destination_wallets.csv` file. If this value is empty or `0`, the receiver will continue receiving transactions until the sender runs out of funds.
+## License
 
-See `Wallet Data` below to see how to apply other transaction limitations.
-
-## Wallet data
-
-The wallet data (for senders and receivers) are found in the `data` folder.
-
-### Sender / Source
-
-The columns for the `source_wallets.csv` (senders) are as follows:
-
-`wallet_address , secret , send_total , send_max , last_balance`
-
-Required columns: `wallet_address , secret`
-
-`wallet_address` = wallet address of sender
-
-`secret`   = wallet private key of sender
-
-`send_total` = (leave empty) the total amount of tokens sent by this app.
-
-`send_max` = (optional) if set, the app will not send more than this total amount to various receivers. If empty, the app will continue until there is no more available funds.
-
-`last_balance` = (leave empty) The last balance is auto updated after each transaction.
-
-
-### Receiver / Destination
-
-The columns for the `destination_wallets.csv` (receivers) are as follows:
-
-`wallet_address , receive_total , receive_max , last_balance`
-
-Required columns: `wallet_address`
-
-`wallet_address` = wallet address of receiver
-
-`receive_total` = (leave empty) the total amount of tokens received by senders of this app.
-
-`receive_max` = (optional) if set, the app will not receive more than this total amount from the various senders. If empty, the app will continue until the senders run out of money or the app is closed (or if `one_transaction_per_wallet` is true).
-
-`last_balance` = (leave empty) The last balance is auto updated after each transaction.
-
-
+MIT — see [LICENSE](LICENSE).
