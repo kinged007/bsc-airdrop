@@ -21,7 +21,7 @@ CI (`.github/workflows/ci.yml`) runs the same on push/PR to `master`.
 
 - Keep changes small and focused; do not add new dependencies without need.
 - Do not commit `config.ini` or anything under `data/` — they hold private keys / funded wallets and are gitignored. Use `config_sample.ini` as the template.
-- This repo is not connected to TenantFlex — do not publish tenantflex-derived code (see `docs/03-tenantflex.md` in the profile plan workspace).
+- Keep this repo self-contained. Do not add network calls in tests; mock external services.
 
 ## Branch / PR workflow
 
