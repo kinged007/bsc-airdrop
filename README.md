@@ -6,9 +6,6 @@
 
 Free BSC token airdrop tool for project owners to distribute ERC-20 or native BNB to many wallets from CSV files. Configure send limits, concurrency, and gas — free for any project owner.
 
-![Demo](./docs/screenshot.png)
-> Screenshot to be added — run `python main.py` to see the interactive airdrop flow (wallet balances, random amounts, transaction receipts).
-
 ## What it is
 
 - Sends ERC-20 tokens or native currency (BNB) to many destination wallets from a funded set of source wallets.
